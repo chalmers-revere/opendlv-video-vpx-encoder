@@ -94,7 +94,6 @@ int32_t main(int32_t argc, char **argv) {
                 std::clog << argv[0] << ": Using " << vpx_codec_iface_name(&vpx_codec_vp9_cx_algo) << std::endl;
             }
 
-
             // Allocate image buffer to hold VP9 frame as output.
             std::vector<char> vp9Buffer;
             vp9Buffer.resize(WIDTH * HEIGHT, '0'); // In practice, this is smaller than WIDTH * HEIGHT
