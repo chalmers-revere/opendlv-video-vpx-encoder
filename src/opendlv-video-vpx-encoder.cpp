@@ -89,7 +89,18 @@ int32_t main(int32_t argc, char **argv) {
             parameters.rc_target_bitrate = BITRATE/1000;
             parameters.g_w = WIDTH;
             parameters.g_h = HEIGHT;
-            parameters.g_threads = 8;
+
+            // Parameters according to https://www.webmproject.org/docs/encoder-parameters/
+            parameters.g_threads = 4;
+            parameters.g_lag_in_frames = 0; // A value > 0 allows the encoder to consume more frames before emitting compressed frames.
+            parameters.rc_end_usage = VPX_CBR;
+            parameters.rc_undershoot_pct = 95;
+            parameters.rc_buf_sz = 6000;
+            parameters.rc_buf_initial_sz = 4000;
+            parameters.rc_buf_optimal_sz = 5000;
+            parameters.rc_min_quantizer = 4;
+            parameters.rc_max_quantizer = (VP8 ? 56 : 52);
+            parameters.kf_max_dist = 999999;
 
             vpx_codec_ctx_t codec;
             memset(&codec, 0, sizeof(codec));
@@ -101,6 +112,7 @@ int32_t main(int32_t argc, char **argv) {
             else {
                 std::clog << argv[0] << ": Using " << vpx_codec_iface_name(encoderAlgorithm) << std::endl;
             }
+            vpx_codec_control(&codec, VP8E_SET_CPUUSED, 4);
 
             // Allocate image buffer to hold VP9 frame as output.
             std::vector<char> vpxBuffer;
@@ -135,7 +147,7 @@ int32_t main(int32_t argc, char **argv) {
                     before = cluon::time::now();
                 }
                 int flags{ (0 == (frameCounter%GOP)) ? VPX_EFLAG_FORCE_KF : 0 };
-                result = vpx_codec_encode(&codec, &yuvFrame, frameCounter, 1, flags, VPX_DL_GOOD_QUALITY);
+                result = vpx_codec_encode(&codec, &yuvFrame, frameCounter, 1, flags, VPX_DL_REALTIME);
                 if (result) {
                     std::cerr << argv[0] << ": Failed to encode frame: " << vpx_codec_err_to_string(result) << std::endl;
                 }
