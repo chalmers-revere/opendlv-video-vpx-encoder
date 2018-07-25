@@ -31,29 +31,35 @@ int32_t main(int32_t argc, char **argv) {
     int32_t retCode{1};
     auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
     if ( (0 == commandlineArguments.count("cid")) ||
+         ( (0 == commandlineArguments.count("vp8")) && (0 == commandlineArguments.count("vp9")) ) ||
+         ( (1 == commandlineArguments.count("vp8")) && (1 == commandlineArguments.count("vp9")) ) ||
          (0 == commandlineArguments.count("name")) ||
          (0 == commandlineArguments.count("width")) ||
          (0 == commandlineArguments.count("height")) ) {
-        std::cerr << argv[0] << " attaches to an I420-formatted image residing in a shared memory area to convert it into a corresponding VPX (VP9) frame for publishing to a running OD4 session." << std::endl;
+        std::cerr << argv[0] << " attaches to an I420-formatted image residing in a shared memory area to convert it into a corresponding VPX (VP8 or VP9) frame for publishing to a running OD4 session." << std::endl;
         std::cerr << "Usage:   " << argv[0] << " --cid=<OpenDaVINCI session> --name=<name of shared memory area> --width=<width> --height=<height> [--gop=<GOP>] [--bitrate=<bitrate>] [--verbose] [--id=<identifier in case of multiple instances]" << std::endl;
+        std::cerr << "         --vp8:     use VP8 encoder" << std::endl;
+        std::cerr << "         --vp9:     use VP9 encoder" << std::endl;
         std::cerr << "         --cid:     CID of the OD4Session to send h264 frames" << std::endl;
         std::cerr << "         --id:      when using several instances, this identifier is used as senderStamp" << std::endl;
         std::cerr << "         --name:    name of the shared memory area to attach" << std::endl;
         std::cerr << "         --width:   width of the frame" << std::endl;
         std::cerr << "         --height:  height of the frame" << std::endl;
         std::cerr << "         --gop:     optional: length of group of pictures (default = 10)" << std::endl;
-        std::cerr << "         --bitrate: optional: desired bitrate (default: 80,000, min: 50,000 max: 5,000,000)" << std::endl;
+        std::cerr << "         --bitrate: optional: desired bitrate (default: 800,000, min: 50,000 max: 5,000,000)" << std::endl;
         std::cerr << "         --verbose: print encoding information" << std::endl;
         std::cerr << "Example: " << argv[0] << " --cid=111 --name=data --width=640 --height=480 --verbose" << std::endl;
     }
     else {
         const std::string NAME{commandlineArguments["name"]};
+        const bool VP8{commandlineArguments.count("vp8") != 0};
+        const bool VP9{commandlineArguments.count("vp9") != 0};
         const uint32_t WIDTH{static_cast<uint32_t>(std::stoi(commandlineArguments["width"]))};
         const uint32_t HEIGHT{static_cast<uint32_t>(std::stoi(commandlineArguments["height"]))};
         const uint32_t GOP_DEFAULT{10};
         const uint32_t GOP{(commandlineArguments["gop"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["gop"])) : GOP_DEFAULT};
         const uint32_t BITRATE_MIN{50000};
-        const uint32_t BITRATE_DEFAULT{80000};
+        const uint32_t BITRATE_DEFAULT{800000};
         const uint32_t BITRATE_MAX{5000000};
         const uint32_t BITRATE{(commandlineArguments["bitrate"].size() != 0) ? std::min(std::max(static_cast<uint32_t>(std::stoi(commandlineArguments["bitrate"])), BITRATE_MIN), BITRATE_MAX) : BITRATE_DEFAULT};
         const bool VERBOSE{commandlineArguments.count("verbose") != 0};
@@ -62,6 +68,8 @@ int32_t main(int32_t argc, char **argv) {
         std::unique_ptr<cluon::SharedMemory> sharedMemory(new cluon::SharedMemory{NAME});
         if (sharedMemory && sharedMemory->valid()) {
             std::clog << argv[0] << ": Attached to '" << sharedMemory->name() << "' (" << sharedMemory->size() << " bytes)." << std::endl;
+
+            vpx_codec_iface_t *encoderAlgorithm{(VP8 ? &vpx_codec_vp8_cx_algo : &vpx_codec_vp9_cx_algo)};
 
             vpx_image_t yuvFrame;
             memset(&yuvFrame, 0, sizeof(yuvFrame));
@@ -72,7 +80,7 @@ int32_t main(int32_t argc, char **argv) {
 
             struct vpx_codec_enc_cfg parameters;
             memset(&parameters, 0, sizeof(parameters));
-            vpx_codec_err_t result = vpx_codec_enc_config_default(&vpx_codec_vp9_cx_algo, &parameters, 0);
+            vpx_codec_err_t result = vpx_codec_enc_config_default(encoderAlgorithm, &parameters, 0);
             if (result) {
                 std::cerr << argv[0] << ": Failed to get default configuration: " << vpx_codec_err_to_string(result) << std::endl;
                 return retCode;
@@ -85,18 +93,18 @@ int32_t main(int32_t argc, char **argv) {
 
             vpx_codec_ctx_t codec;
             memset(&codec, 0, sizeof(codec));
-            result = vpx_codec_enc_init(&codec, &vpx_codec_vp9_cx_algo, &parameters, 0);
+            result = vpx_codec_enc_init(&codec, encoderAlgorithm, &parameters, 0);
             if (result) {
                 std::cerr << argv[0] << ": Failed to initialize encoder: " << vpx_codec_err_to_string(result) << std::endl;
                 return retCode;
             }
             else {
-                std::clog << argv[0] << ": Using " << vpx_codec_iface_name(&vpx_codec_vp9_cx_algo) << std::endl;
+                std::clog << argv[0] << ": Using " << vpx_codec_iface_name(encoderAlgorithm) << std::endl;
             }
 
             // Allocate image buffer to hold VP9 frame as output.
-            std::vector<char> vp9Buffer;
-            vp9Buffer.resize(WIDTH * HEIGHT, '0'); // In practice, this is smaller than WIDTH * HEIGHT
+            std::vector<char> vpxBuffer;
+            vpxBuffer.resize(WIDTH * HEIGHT, '0'); // In practice, this is smaller than WIDTH * HEIGHT
 
             uint32_t frameCounter{0};
 
@@ -143,7 +151,7 @@ int32_t main(int32_t argc, char **argv) {
                     while ((packet = vpx_codec_get_cx_data(&codec, &it))) {
                         switch (packet->kind) {
                             case VPX_CODEC_CX_FRAME_PKT:
-                                memcpy(&vp9Buffer[totalSize], packet->data.frame.buf, packet->data.frame.sz);
+                                memcpy(&vpxBuffer[totalSize], packet->data.frame.buf, packet->data.frame.sz);
                                 totalSize += packet->data.frame.sz;
                             break;
                         default:
@@ -151,9 +159,9 @@ int32_t main(int32_t argc, char **argv) {
                         }
                     }
 
-                    if (0 < totalSize) {
+                    if ( (0 < totalSize) && (VP8 || VP9) ) {
                         opendlv::proxy::ImageReading ir;
-                        ir.format("VP90").width(WIDTH).height(HEIGHT).data(std::string(&vp9Buffer[0], totalSize));
+                        ir.format((VP8 ? "VP80" : "VP90")).width(WIDTH).height(HEIGHT).data(std::string(&vpxBuffer[0], totalSize));
                         od4.send(ir, sampleTimeStamp, ID);
 
                         if (VERBOSE) {
