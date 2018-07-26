@@ -40,7 +40,7 @@ int32_t main(int32_t argc, char **argv) {
         std::cerr << "Usage:   " << argv[0] << " --cid=<OpenDaVINCI session> --name=<name of shared memory area> --width=<width> --height=<height> [--gop=<GOP>] [--bitrate=<bitrate>] [--verbose] [--id=<identifier in case of multiple instances]" << std::endl;
         std::cerr << "         --vp8:     use VP8 encoder" << std::endl;
         std::cerr << "         --vp9:     use VP9 encoder" << std::endl;
-        std::cerr << "         --cid:     CID of the OD4Session to send h264 frames" << std::endl;
+        std::cerr << "         --cid:     CID of the OD4Session to send VP8 or VP9 frames" << std::endl;
         std::cerr << "         --id:      when using several instances, this identifier is used as senderStamp" << std::endl;
         std::cerr << "         --name:    name of the shared memory area to attach" << std::endl;
         std::cerr << "         --width:   width of the frame" << std::endl;
@@ -67,14 +67,14 @@ int32_t main(int32_t argc, char **argv) {
 
         std::unique_ptr<cluon::SharedMemory> sharedMemory(new cluon::SharedMemory{NAME});
         if (sharedMemory && sharedMemory->valid()) {
-            std::clog << argv[0] << ": Attached to '" << sharedMemory->name() << "' (" << sharedMemory->size() << " bytes)." << std::endl;
+            std::clog << "[opendlv-video-vpx-encoder]: Attached to '" << sharedMemory->name() << "' (" << sharedMemory->size() << " bytes)." << std::endl;
 
             vpx_codec_iface_t *encoderAlgorithm{(VP8 ? &vpx_codec_vp8_cx_algo : &vpx_codec_vp9_cx_algo)};
 
             vpx_image_t yuvFrame;
             memset(&yuvFrame, 0, sizeof(yuvFrame));
             if (!vpx_img_alloc(&yuvFrame, VPX_IMG_FMT_I420, WIDTH, HEIGHT, 1)) {
-                std::cerr << argv[0] << ": Failed to allocate image." << std::endl;
+                std::cerr << "[opendlv-video-vpx-encoder]: Failed to allocate image." << std::endl;
                 return retCode;
             }
 
@@ -82,7 +82,7 @@ int32_t main(int32_t argc, char **argv) {
             memset(&parameters, 0, sizeof(parameters));
             vpx_codec_err_t result = vpx_codec_enc_config_default(encoderAlgorithm, &parameters, 0);
             if (result) {
-                std::cerr << argv[0] << ": Failed to get default configuration: " << vpx_codec_err_to_string(result) << std::endl;
+                std::cerr << "[opendlv-video-vpx-encoder]: Failed to get default configuration: " << vpx_codec_err_to_string(result) << std::endl;
                 return retCode;
             }
 
@@ -106,11 +106,11 @@ int32_t main(int32_t argc, char **argv) {
             memset(&codec, 0, sizeof(codec));
             result = vpx_codec_enc_init(&codec, encoderAlgorithm, &parameters, 0);
             if (result) {
-                std::cerr << argv[0] << ": Failed to initialize encoder: " << vpx_codec_err_to_string(result) << std::endl;
+                std::cerr << "[opendlv-video-vpx-encoder]: Failed to initialize encoder: " << vpx_codec_err_to_string(result) << std::endl;
                 return retCode;
             }
             else {
-                std::clog << argv[0] << ": Using " << vpx_codec_iface_name(encoderAlgorithm) << std::endl;
+                std::clog << "[opendlv-video-vpx-encoder]: Using " << vpx_codec_iface_name(encoderAlgorithm) << std::endl;
             }
             vpx_codec_control(&codec, VP8E_SET_CPUUSED, 4);
 
@@ -149,7 +149,7 @@ int32_t main(int32_t argc, char **argv) {
                 int flags{ (0 == (frameCounter%GOP)) ? VPX_EFLAG_FORCE_KF : 0 };
                 result = vpx_codec_encode(&codec, &yuvFrame, frameCounter, 1, flags, VPX_DL_REALTIME);
                 if (result) {
-                    std::cerr << argv[0] << ": Failed to encode frame: " << vpx_codec_err_to_string(result) << std::endl;
+                    std::cerr << "[opendlv-video-vpx-encoder]: Failed to encode frame: " << vpx_codec_err_to_string(result) << std::endl;
                 }
                 if (VERBOSE) {
                     after = cluon::time::now();
@@ -177,7 +177,7 @@ int32_t main(int32_t argc, char **argv) {
                         od4.send(ir, sampleTimeStamp, ID);
 
                         if (VERBOSE) {
-                            std::clog << argv[0] << ": Frame size = " << totalSize << " bytes; encoding took " << cluon::time::deltaInMicroseconds(after, before) << " microseconds." << std::endl;
+                            std::clog << "[opendlv-video-vpx-encoder]: Frame size = " << totalSize << " bytes; encoding took " << cluon::time::deltaInMicroseconds(after, before) << " microseconds." << std::endl;
                         }
                         frameCounter++;
                     }
@@ -189,7 +189,7 @@ int32_t main(int32_t argc, char **argv) {
             retCode = 0;
         }
         else {
-            std::cerr << argv[0] << ": Failed to attach to shared memory '" << NAME << "'." << std::endl;
+            std::cerr << "[opendlv-video-vpx-encoder]: Failed to attach to shared memory '" << NAME << "'." << std::endl;
         }
     }
     return retCode;
