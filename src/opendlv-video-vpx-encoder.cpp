@@ -72,9 +72,8 @@ int32_t main(int32_t argc, char **argv) {
             vpx_codec_iface_t *encoderAlgorithm{(VP8 ? &vpx_codec_vp8_cx_algo : &vpx_codec_vp9_cx_algo)};
 
             vpx_image_t yuvFrame;
-            memset(&yuvFrame, 0, sizeof(yuvFrame));
-            if (!vpx_img_alloc(&yuvFrame, VPX_IMG_FMT_I420, WIDTH, HEIGHT, 1)) {
-                std::cerr << "[opendlv-video-vpx-encoder]: Failed to allocate image." << std::endl;
+            if (!vpx_img_wrap(&yuvFrame, VPX_IMG_FMT_I420, WIDTH, HEIGHT, 1, reinterpret_cast<uint8_t*>(sharedMemory->data()))) {
+                std::cerr << "[opendlv-video-vpx-encoder]: Failed to wrap shared memory into vpx_image." << std::endl;
                 return retCode;
             }
 
@@ -89,6 +88,8 @@ int32_t main(int32_t argc, char **argv) {
             parameters.rc_target_bitrate = BITRATE/1000;
             parameters.g_w = WIDTH;
             parameters.g_h = HEIGHT;
+            parameters.g_timebase.num = 1;
+            parameters.g_timebase.den = 20 /* implicitly given from notifyAll trigger*/;
 
             // Parameters according to https://www.webmproject.org/docs/encoder-parameters/
             parameters.g_threads = 4;
@@ -133,27 +134,19 @@ int32_t main(int32_t argc, char **argv) {
 
                 sharedMemory->lock();
                 {
-                    // TODO: Avoid copying the data.
-                    memcpy(yuvFrame.planes[VPX_PLANE_Y], sharedMemory->data(), (WIDTH * HEIGHT));
-                    memcpy(yuvFrame.planes[VPX_PLANE_U], sharedMemory->data() + (WIDTH * HEIGHT), ((WIDTH * HEIGHT) >> 2));
-                    memcpy(yuvFrame.planes[VPX_PLANE_V], sharedMemory->data() + (WIDTH * HEIGHT + ((WIDTH * HEIGHT) >> 2)), ((WIDTH * HEIGHT) >> 2));
-                    yuvFrame.stride[VPX_PLANE_Y] = WIDTH;
-                    yuvFrame.stride[VPX_PLANE_U] = WIDTH/2;
-                    yuvFrame.stride[VPX_PLANE_V] = WIDTH/2;
+                    if (VERBOSE) {
+                        before = cluon::time::now();
+                    }
+                    int flags{ (0 == (frameCounter%GOP)) ? VPX_EFLAG_FORCE_KF : 0 };
+                    result = vpx_codec_encode(&codec, &yuvFrame, frameCounter, 1, flags, VPX_DL_REALTIME);
+                    if (result) {
+                        std::cerr << "[opendlv-video-vpx-encoder]: Failed to encode frame: " << vpx_codec_err_to_string(result) << std::endl;
+                    }
+                    if (VERBOSE) {
+                        after = cluon::time::now();
+                    }
                 }
                 sharedMemory->unlock();
-
-                if (VERBOSE) {
-                    before = cluon::time::now();
-                }
-                int flags{ (0 == (frameCounter%GOP)) ? VPX_EFLAG_FORCE_KF : 0 };
-                result = vpx_codec_encode(&codec, &yuvFrame, frameCounter, 1, flags, VPX_DL_REALTIME);
-                if (result) {
-                    std::cerr << "[opendlv-video-vpx-encoder]: Failed to encode frame: " << vpx_codec_err_to_string(result) << std::endl;
-                }
-                if (VERBOSE) {
-                    after = cluon::time::now();
-                }
 
                 if (!result) {
                     vpx_codec_iter_t it{nullptr};
