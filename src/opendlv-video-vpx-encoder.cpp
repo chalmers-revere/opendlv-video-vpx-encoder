@@ -166,7 +166,7 @@ int32_t main(int32_t argc, char **argv) {
 
                     if ( (0 < totalSize) && (VP8 || VP9) ) {
                         opendlv::proxy::ImageReading ir;
-                        ir.format((VP8 ? "VP80" : "VP90")).width(WIDTH).height(HEIGHT).data(std::string(&vpxBuffer[0], totalSize));
+                        ir.fourcc((VP8 ? "VP80" : "VP90")).width(WIDTH).height(HEIGHT).data(std::string(&vpxBuffer[0], totalSize));
                         od4.send(ir, sampleTimeStamp, ID);
 
                         if (VERBOSE) {
