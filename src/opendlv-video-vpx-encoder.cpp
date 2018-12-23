@@ -134,6 +134,11 @@ int32_t main(int32_t argc, char **argv) {
 
                 sharedMemory->lock();
                 {
+                    // Read notification timestamp.
+                    auto r = sharedMemory->getTimeStamp();
+                    sampleTimeStamp = (r.first ? r.second : sampleTimeStamp);
+                }
+                {
                     if (VERBOSE) {
                         before = cluon::time::now();
                     }
@@ -170,7 +175,7 @@ int32_t main(int32_t argc, char **argv) {
                         od4.send(ir, sampleTimeStamp, ID);
 
                         if (VERBOSE) {
-                            std::clog << "[opendlv-video-vpx-encoder]: Frame size = " << totalSize << " bytes; encoding took " << cluon::time::deltaInMicroseconds(after, before) << " microseconds." << std::endl;
+                            std::clog << "[opendlv-video-vpx-encoder]: Frame size = " << totalSize << " bytes; sample time = " << cluon::time::toMicroseconds(sampleTimeStamp) << " microseconds; encoding took " << cluon::time::deltaInMicroseconds(after, before) << " microseconds." << std::endl;
                         }
                         frameCounter++;
                     }
