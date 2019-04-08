@@ -65,6 +65,36 @@ int32_t main(int32_t argc, char **argv) {
         const bool VERBOSE{commandlineArguments.count("verbose") != 0};
         const uint32_t ID{(commandlineArguments["id"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["id"])) : 0};
 
+        // Thesis addition.
+        const uint32_t PASSES{(commandlineArguments["passes"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["passes"])) : 1};
+        const uint32_t PASS{(commandlineArguments["pass"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["pass"])) : 1};
+        const uint32_t DEADLINE{(commandlineArguments["deadline"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["deadline"])) : 0};
+        const bool BEST{commandlineArguments.count("best") != 0};
+        const bool GOOD{commandlineArguments.count("good") != 0};
+        const bool RT{commandlineArguments.count("rt") != 0};
+        const uint32_t USAGE{(commandlineArguments["usage"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["usage"])) : 0};
+        const uint32_t THREADS{(commandlineArguments["threads"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["threads"])) : 1};
+        const uint32_t PROFILE{(commandlineArguments["profile"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["profile"])) : 0};
+        const std::string STEREO_MODE{(commandlineArguments["stereo-mode"].size() != 0) ? commandlineArguments["stereo-mode"] : "mono"};
+        const uint32_t FPS{(commandlineArguments["fps"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["fps"])) : 30};
+        const uint32_t LAG_IN_FRAMES{(commandlineArguments["lag-in-frames"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["lag-in-frames"])) : 0};
+        const uint32_t DROP_FRAME{(commandlineArguments["drop-frame"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["drop-frame"])) : 0};
+        const bool RESIZE_ALLOWED{commandlineArguments.count("resize-allowed") != 0};
+        const uint32_t RESIZE_UP{(commandlineArguments["resize-up"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["resize-up"])) : 0};
+        const uint32_t RESIZE_DOWN{(commandlineArguments["resize-down"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["resize-down"])) : 0};
+        const std::string END_USAGE{(commandlineArguments["end-usage"].size() != 0) ? commandlineArguments["end-usage"] : "vbr"};
+        const uint32_t TARGET_BITRATE{(commandlineArguments["target-bitrate"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["target_bitrate"])) : BITRATE_DEFAULT};
+        const uint32_t MIN_Q{(commandlineArguments["min-q"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["min-q"])) : 4};
+        const uint32_t MAX_Q{(commandlineArguments["max-q"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["max-q"])) : (VP8 ? 56 : 52)};
+        const uint32_t UNDERSHOOT_PCT{(commandlineArguments["undershoot-pct"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["undershoot-pct"])) : 0};
+        const uint32_t OVERSHOOT_PCT{(commandlineArguments["overshoot-pct"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["overshoot-pct"])) : 0};
+
+        /*
+
+            Skipped parameters: fpf, limit, skip - Provides no values for our cause.
+
+        */
+
         std::unique_ptr<cluon::SharedMemory> sharedMemory(new cluon::SharedMemory{NAME});
         if (sharedMemory && sharedMemory->valid()) {
             std::clog << "[opendlv-video-vpx-encoder]: Attached to '" << sharedMemory->name() << "' (" << sharedMemory->size() << " bytes)." << std::endl;
@@ -102,6 +132,9 @@ int32_t main(int32_t argc, char **argv) {
             parameters.rc_min_quantizer = 4;
             parameters.rc_max_quantizer = (VP8 ? 56 : 52);
             parameters.kf_max_dist = 999999;
+
+            // Thesis parameters.
+            // Look into this.
 
             vpx_codec_ctx_t codec;
             memset(&codec, 0, sizeof(codec));
