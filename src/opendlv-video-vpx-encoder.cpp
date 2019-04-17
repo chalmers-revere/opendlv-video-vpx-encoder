@@ -73,6 +73,8 @@ int32_t main(int32_t argc, char **argv) {
         //const bool GOOD{commandlineArguments.count("good") != 0};
         //const bool RT{commandlineArguments.count("rt") != 0};
         //const uint32_t USAGE{(commandlineArguments["usage"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["usage"])) : 0};
+
+
         const uint32_t THREADS{(commandlineArguments["threads"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["threads"])) : 4};
         const uint32_t PROFILE{(commandlineArguments["profile"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["profile"])) : 0};
         const std::string STEREO_MODE{(commandlineArguments["stereo-mode"].size() != 0) ? commandlineArguments["stereo-mode"] : "mono"};
@@ -95,7 +97,6 @@ int32_t main(int32_t argc, char **argv) {
         const uint32_t KF_MAX_DIST{(commandlineArguments["kf-max-dist"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["kf-max-dist"])) : 99999};
 
         /*
-
             Skipped parameters: fpf, limit, skip, thread - Provides no value for our cause.
 
         */
@@ -128,6 +129,12 @@ int32_t main(int32_t argc, char **argv) {
 
             // Parameters according to https://www.webmproject.org/docs/encoder-parameters/
             parameters.g_threads = THREADS;
+            parameters.rc_max_quantizer = (VP8 ? 56 : 52);
+
+
+
+            // Thesis parameters.
+
 
             if (END_USAGE == 0) {
               parameters.rc_end_usage = VPX_CBR;
@@ -135,9 +142,8 @@ int32_t main(int32_t argc, char **argv) {
               parameters.rc_end_usage = VPX_VBR;
             }
 
-            parameters.rc_max_quantizer = (VP8 ? 56 : 52);
 
-            // Thesis parameters.
+
             parameters.g_profile = PROFILE;
             parameters.g_lag_in_frames = LAG_IN_FRAMES; // A value > 0 allows the encoder to consume more frames before emitting compressed frames.
 
@@ -147,13 +153,13 @@ int32_t main(int32_t argc, char **argv) {
             parameters.rc_resize_down_thresh = RESIZE_DOWN;
             // Testing every q below rc_max_quantizer.
             parameters.rc_min_quantizer = MIN_Q;
-
             parameters.rc_undershoot_pct = UNDERSHOOT_PCT;
             parameters.rc_overshoot_pct = OVERSHOOT_PCT;
 
             parameters.rc_buf_sz = BUFFER_SIZE;
             parameters.rc_buf_initial_sz = BUFFER_INIT_SIZE;
             parameters.rc_buf_optimal_sz = BUFFER_OPTIMAL_SIZE;
+
 
             /*
                     IGNORED PARAMETERS:
@@ -172,6 +178,7 @@ int32_t main(int32_t argc, char **argv) {
 
             // There is two keyframe modes, unsure of best way to handle this.
 
+
             if (KF_MODE == 1) {
               parameters.kf_mode = VPX_KF_DISABLED;
             } else {
@@ -179,7 +186,7 @@ int32_t main(int32_t argc, char **argv) {
             }
 
             parameters.kf_min_dist = KF_MIN_DIST;
-            parameters.kf_min_dist = KF_MAX_DIST;
+            parameters.kf_max_dist = KF_MAX_DIST;
 
             vpx_codec_ctx_t codec;
             memset(&codec, 0, sizeof(codec));
