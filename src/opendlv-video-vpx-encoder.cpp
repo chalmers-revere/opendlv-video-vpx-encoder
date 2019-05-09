@@ -64,7 +64,6 @@ int32_t main(int32_t argc, char **argv) {
         const uint32_t BITRATE{(commandlineArguments["bitrate"].size() != 0) ? std::min(std::max(static_cast<uint32_t>(std::stoi(commandlineArguments["bitrate"])), BITRATE_MIN), BITRATE_MAX) : BITRATE_DEFAULT};
         const bool VERBOSE{commandlineArguments.count("verbose") != 0};
         const uint32_t ID{(commandlineArguments["id"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["id"])) : 0};
-
         const uint32_t THREADS{(commandlineArguments["threads"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["threads"])) : 4};
         const uint32_t PROFILE{(commandlineArguments["profile"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["profile"])) : 0};
         const std::string STEREO_MODE{(commandlineArguments["stereo-mode"].size() != 0) ? commandlineArguments["stereo-mode"] : "mono"};
@@ -82,8 +81,8 @@ int32_t main(int32_t argc, char **argv) {
         const uint32_t BUFFER_OPTIMAL_SIZE{(commandlineArguments["buffer-optimal-size"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["buffer-optimal-size"])) : 5000};
         const uint32_t KF_MODE{(commandlineArguments["kf-mode"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["kf-mode"])) : 0};
         const uint32_t KF_MIN_DIST{(commandlineArguments["kf-min-dist"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["kf-min-dist"])) : 0};
-        const uint32_t KF_MAX_DIST{(commandlineArguments["kf-max-dist"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["kf-max-dist"])) : 250};
-
+        const uint32_t KF_MAX_DIST{(commandlineArguments["kf-max-dist"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["kf-max-dist"])) : 99999};
+        
         std::unique_ptr<cluon::SharedMemory> sharedMemory(new cluon::SharedMemory{NAME});
         if (sharedMemory && sharedMemory->valid()) {
             std::clog << "[opendlv-video-vpx-encoder]: Attached to '" << sharedMemory->name() << "' (" << sharedMemory->size() << " bytes)." << std::endl;
@@ -114,11 +113,6 @@ int32_t main(int32_t argc, char **argv) {
             parameters.g_threads = THREADS;
             parameters.rc_max_quantizer = (VP8 ? 56 : 52);
 
-
-
-            // Thesis parameters.
-
-
             if (END_USAGE == 0) {
               parameters.rc_end_usage = VPX_CBR;
             } else {
@@ -146,7 +140,6 @@ int32_t main(int32_t argc, char **argv) {
             parameters.rc_buf_initial_sz = BUFFER_INIT_SIZE;
             parameters.rc_buf_optimal_sz = BUFFER_OPTIMAL_SIZE;
 
-            // There is two keyframe modes, unsure of best way to handle this.
             if (KF_MODE == 1) {
               parameters.kf_mode = VPX_KF_DISABLED;
             } else {
