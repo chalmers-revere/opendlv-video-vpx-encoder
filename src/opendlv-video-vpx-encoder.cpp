@@ -141,12 +141,17 @@ int32_t main(int32_t argc, char **argv) {
             parameters.rc_buf_optimal_sz = BUFFER_OPTIMAL_SIZE;
 
             if (KF_MODE == 1) {
-              parameters.kf_mode = VPX_KF_DISABLED;
+              parameters.kf_mode = vpx_kf_mode::VPX_KF_DISABLED;
             } else {
-              parameters.kf_mode = VPX_KF_AUTO;
+              parameters.kf_mode = vpx_kf_mode::VPX_KF_AUTO;
             }
 
-            parameters.kf_min_dist = KF_MIN_DIST;
+            // kf_min_dist has two modes, either 0 or == to kf_max_dist
+            if (KF_MIN_DIST == 0) {
+                parameters.kf_min_dist = KF_MIN_DIST;
+            } else {
+                parameters.kf_min_dist = KF_MAX_DIST;
+            }
             parameters.kf_max_dist = KF_MAX_DIST;
 
             vpx_codec_ctx_t codec;
