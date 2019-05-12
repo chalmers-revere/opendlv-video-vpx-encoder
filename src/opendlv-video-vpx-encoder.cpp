@@ -63,7 +63,8 @@ int32_t main(int32_t argc, char **argv) {
         const uint32_t BITRATE_MAX{5000000};
         const uint32_t BITRATE{(commandlineArguments["bitrate"].size() != 0) ? std::min(std::max(static_cast<uint32_t>(std::stoi(commandlineArguments["bitrate"])), BITRATE_MIN), BITRATE_MAX) : BITRATE_DEFAULT};
         const bool VERBOSE{commandlineArguments.count("verbose") != 0};
-        const uint32_t ID{(commandlineArguments["id"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["id"])) : 0};
+        const uint32_t CPUUSED{(commandlineArguments["cpu-used"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["cpu-used"])) : 5};
+	const uint32_t ID{(commandlineArguments["id"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["id"])) : 0};
         const uint32_t THREADS{(commandlineArguments["threads"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["threads"])) : 4};
         const uint32_t PROFILE{(commandlineArguments["profile"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["profile"])) : 0};
         const std::string STEREO_MODE{(commandlineArguments["stereo-mode"].size() != 0) ? commandlineArguments["stereo-mode"] : "mono"};
@@ -164,7 +165,7 @@ int32_t main(int32_t argc, char **argv) {
             else {
                 std::clog << "[opendlv-video-vpx-encoder]: Using " << vpx_codec_iface_name(encoderAlgorithm) << std::endl;
             }
-            vpx_codec_control(&codec, VP8E_SET_CPUUSED, 5);
+            vpx_codec_control(&codec, VP8E_SET_CPUUSED, CPUUSED);
 
             // Allocate image buffer to hold VP9 frame as output.
             std::vector<char> vpxBuffer;
