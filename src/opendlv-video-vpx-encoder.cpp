@@ -63,8 +63,27 @@ int32_t main(int32_t argc, char **argv) {
         const uint32_t BITRATE_MAX{5000000};
         const uint32_t BITRATE{(commandlineArguments["bitrate"].size() != 0) ? std::min(std::max(static_cast<uint32_t>(std::stoi(commandlineArguments["bitrate"])), BITRATE_MIN), BITRATE_MAX) : BITRATE_DEFAULT};
         const bool VERBOSE{commandlineArguments.count("verbose") != 0};
-        const uint32_t ID{(commandlineArguments["id"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["id"])) : 0};
-
+        const uint32_t CPUUSED{(commandlineArguments["cpu-used"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["cpu-used"])) : 5};
+	const uint32_t ID{(commandlineArguments["id"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["id"])) : 0};
+        const uint32_t THREADS{(commandlineArguments["threads"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["threads"])) : 4};
+        const uint32_t PROFILE{(commandlineArguments["profile"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["profile"])) : 0};
+        const std::string STEREO_MODE{(commandlineArguments["stereo-mode"].size() != 0) ? commandlineArguments["stereo-mode"] : "mono"};
+        const uint32_t LAG_IN_FRAMES{(commandlineArguments["lag-in-frames"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["lag-in-frames"])) : 0};
+        const uint32_t DROP_FRAME{(commandlineArguments["drop-frame"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["drop-frame"])) : 0};
+        const uint32_t RESIZE_ALLOWED{commandlineArguments.count("resize-allowed") ? static_cast<uint32_t>(std::stoi(commandlineArguments["resize-allowed"])) : 0};
+        const uint32_t RESIZE_UP{(commandlineArguments["resize-up"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["resize-up"])) : 0};
+        const uint32_t RESIZE_DOWN{(commandlineArguments["resize-down"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["resize-down"])) : 0};
+        const uint32_t END_USAGE{(commandlineArguments["end-usage"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["end-usage"])) : 0};
+        const uint32_t MIN_Q{(commandlineArguments["min-q"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["min-q"])) : 4};
+        const uint32_t UNDERSHOOT_PCT{(commandlineArguments["undershoot-pct"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["undershoot-pct"])) : 0};
+        const uint32_t OVERSHOOT_PCT{(commandlineArguments["overshoot-pct"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["overshoot-pct"])) : 0};
+        const uint32_t BUFFER_SIZE{(commandlineArguments["buffer-size"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["buffer-size"])) : 6000};
+        const uint32_t BUFFER_INIT_SIZE{(commandlineArguments["buffer-init-size"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["buffer-init-size"])) : 4000};
+        const uint32_t BUFFER_OPTIMAL_SIZE{(commandlineArguments["buffer-optimal-size"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["buffer-optimal-size"])) : 5000};
+        const uint32_t KF_MODE{(commandlineArguments["kf-mode"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["kf-mode"])) : 0};
+        const uint32_t KF_MIN_DIST{(commandlineArguments["kf-min-dist"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["kf-min-dist"])) : 0};
+        const uint32_t KF_MAX_DIST{(commandlineArguments["kf-max-dist"].size() != 0) ? static_cast<uint32_t>(std::stoi(commandlineArguments["kf-max-dist"])) : 99999};
+        
         std::unique_ptr<cluon::SharedMemory> sharedMemory(new cluon::SharedMemory{NAME});
         if (sharedMemory && sharedMemory->valid()) {
             std::clog << "[opendlv-video-vpx-encoder]: Attached to '" << sharedMemory->name() << "' (" << sharedMemory->size() << " bytes)." << std::endl;
@@ -92,16 +111,49 @@ int32_t main(int32_t argc, char **argv) {
             parameters.g_timebase.den = 20 /* implicitly given from notifyAll trigger*/;
 
             // Parameters according to https://www.webmproject.org/docs/encoder-parameters/
-            parameters.g_threads = 4;
-            parameters.g_lag_in_frames = 0; // A value > 0 allows the encoder to consume more frames before emitting compressed frames.
-            parameters.rc_end_usage = VPX_CBR;
-            parameters.rc_undershoot_pct = 95;
-            parameters.rc_buf_sz = 6000;
-            parameters.rc_buf_initial_sz = 4000;
-            parameters.rc_buf_optimal_sz = 5000;
-            parameters.rc_min_quantizer = 4;
+            parameters.g_threads = THREADS;
             parameters.rc_max_quantizer = (VP8 ? 56 : 52);
-            parameters.kf_max_dist = 999999;
+
+            if (END_USAGE == 0) {
+              parameters.rc_end_usage = VPX_CBR;
+            } else {
+              parameters.rc_end_usage = VPX_VBR;
+            }
+
+            parameters.g_profile = PROFILE;
+            // A value > 0 allows the encoder to consume more frames before emitting compressed frames.
+            parameters.g_lag_in_frames = LAG_IN_FRAMES; 
+
+            parameters.rc_dropframe_thresh = DROP_FRAME;
+            if (RESIZE_ALLOWED == 0) {
+                parameters.rc_resize_allowed = false; 
+            } else {
+                parameters.rc_resize_allowed = true; 
+            }
+            parameters.rc_resize_up_thresh = RESIZE_UP;
+            parameters.rc_resize_down_thresh = RESIZE_DOWN;
+            // Testing every q below rc_max_quantizer.
+            parameters.rc_min_quantizer = MIN_Q;
+            parameters.rc_undershoot_pct = UNDERSHOOT_PCT;
+            parameters.rc_overshoot_pct = OVERSHOOT_PCT;
+
+            parameters.rc_buf_sz = BUFFER_SIZE;
+            parameters.rc_buf_initial_sz = BUFFER_INIT_SIZE;
+            parameters.rc_buf_optimal_sz = BUFFER_OPTIMAL_SIZE;
+
+            if (KF_MODE == 1) {
+              parameters.kf_mode = vpx_kf_mode::VPX_KF_DISABLED;
+            } else {
+              parameters.kf_mode = vpx_kf_mode::VPX_KF_AUTO;
+            }
+
+            // kf_min_dist has two modes, either 0 or == to kf_max_dist
+            if (KF_MIN_DIST == 0) {
+                parameters.kf_min_dist = KF_MIN_DIST;
+            } else {
+                parameters.kf_min_dist = KF_MAX_DIST;
+            }
+            parameters.kf_max_dist = KF_MAX_DIST;
 
             vpx_codec_ctx_t codec;
             memset(&codec, 0, sizeof(codec));
@@ -113,7 +165,7 @@ int32_t main(int32_t argc, char **argv) {
             else {
                 std::clog << "[opendlv-video-vpx-encoder]: Using " << vpx_codec_iface_name(encoderAlgorithm) << std::endl;
             }
-            vpx_codec_control(&codec, VP8E_SET_CPUUSED, 4);
+            vpx_codec_control(&codec, VP8E_SET_CPUUSED, CPUUSED);
 
             // Allocate image buffer to hold VP9 frame as output.
             std::vector<char> vpxBuffer;
